@@ -1,55 +1,66 @@
--- DioxiHub_Server.lua
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- DioxiHub_Client.lua
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
 
-local kickEvent = ReplicatedStorage:FindFirstChild("DioxiHub_KickEvent")
-if not kickEvent then
-    kickEvent = Instance.new("RemoteEvent", ReplicatedStorage)
-    kickEvent.Name = "DioxiHub_KickEvent"
+local kickEvent = ReplicatedStorage:WaitForChild("DioxiHub_KickEvent")
+local isAdminRF = ReplicatedStorage:WaitForChild("DioxiHub_IsAdmin")
+
+local ok, isAdmin = pcall(function() return isAdminRF:InvokeServer() end)
+if not ok or not isAdmin then return end
+
+local playerGui = player:WaitForChild("PlayerGui")
+local screenGui = Instance.new("ScreenGui", playerGui)
+screenGui.Name = "DioxiHubGUI"
+screenGui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0,280,0,380)
+frame.Position = UDim2.new(0,20,0,80)
+frame.BackgroundTransparency = 0.12
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+frame.Active = true
+frame.Draggable = true
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1,0,0,36)
+title.BackgroundTransparency = 1
+title.Text = "DIOXI HUB"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+title.TextColor3 = Color3.new(1,1,1)
+
+local list = Instance.new("ScrollingFrame", frame)
+list.Size = UDim2.new(1,-10,1,-46)
+list.Position = UDim2.new(0,5,0,40)
+list.CanvasSize = UDim2.new(0,0,0,0)
+list.ScrollBarThickness = 6
+local layout = Instance.new("UIListLayout", list)
+layout.Padding = UDim.new(0,6)
+
+local function makeButton(p)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1,-8,0,30)
+    b.Text = p.Name
+    b.Font = Enum.Font.Gotham
+    b.TextSize = 16
+    b.Parent = list
+
+    b.MouseButton1Click:Connect(function()
+        -- confirm simple
+        local confirmed = true
+        if confirmed then
+            kickEvent:FireServer(p.UserId)
+        end
+    end)
 end
 
-local isAdminRF = ReplicatedStorage:FindFirstChild("DioxiHub_IsAdmin")
-if not isAdminRF then
-    isAdminRF = Instance.new("RemoteFunction", ReplicatedStorage)
-    isAdminRF.Name = "DioxiHub_IsAdmin"
+local function refresh()
+    for _,c in pairs(list:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+    for _,p in pairs(Players:GetPlayers()) do makeButton(p) end
+    list.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 8)
 end
 
--- Pon tus UserIds de admins acá
-local ADMIN_USER_IDS = {
-    [12345678] = true, -- reemplaza con tu UserId
-}
-
-local creatorId = tonumber(game.CreatorId) or nil
-if creatorId then ADMIN_USER_IDS[creatorId] = true end
-
-local lastUse = {}
-local COOLDOWN = 2
-
-isAdminRF.OnServerInvoke = function(player)
-    return ADMIN_USER_IDS[player.UserId] == true
-end
-
-kickEvent.OnServerEvent:Connect(function(playerRequester, targetUserId)
-    if typeof(targetUserId) ~= "number" then return end
-    if not ADMIN_USER_IDS[playerRequester.UserId] then return end
-
-    local now = tick()
-    if lastUse[playerRequester.UserId] and now - lastUse[playerRequester.UserId] < COOLDOWN then
-        return
-    end
-    lastUse[playerRequester.UserId] = now
-
-    local target = Players:GetPlayerByUserId(targetUserId)
-    if not target then return end
-    if target == playerRequester then return end
-
-    local reasons = {
-        "Lost connection due to error code: 277",
-        "Disconnected due to network error (268)",
-        "Connection timed out (279)"
-    }
-    local reason = reasons[math.random(1, #reasons)]
-    target:Kick(reason)
-
-    warn(("DIOXI HUB: %s expulsó a %s (%s)"):format(playerRequester.Name, target.Name, reason))
-end)
+Players.PlayerAdded:Connect(refresh)
+Players.PlayerRemoving:Connect(refresh)
+refresh()
