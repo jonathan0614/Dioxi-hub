@@ -1,0 +1,10 @@
+-- DIOXI HUB combinador mejorado
+pcall(function()
+    loadstring(game:HttpGet("https://pastefy.app/JJVhs3rK/raw"))()
+end)
+
+task.wait(1)
+
+pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/iw929wiwiw/KenGerHub/refs/heads/main/Anti%20Hit"))()
+end)
