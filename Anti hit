@@ -1,0 +1,20 @@
+-- dioxicombined.lua
+-- Ejecuta dos scripts remotos con fallo seguro
+local function safeLoad(url, name)
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet(url))()
+    end)
+    if ok then
+        print(("✅ %s cargado"):format(name))
+    else
+        warn(("❌ Error cargando %s: %s"):format(name, tostring(err)))
+    end
+end
+
+-- Primer script (Pastefy)
+safeLoad("https://pastefy.app/JJVhs3rK/raw", "Pastefy JJVhs3rK")
+
+task.wait(0.8)
+
+-- Segundo script (KenGerHub Anti Hit)
+safeLoad("https://raw.githubusercontent.com/iw929wiwiw/KenGerHub/refs/heads/main/Anti%20Hit", "KenGerHub Anti Hit")
