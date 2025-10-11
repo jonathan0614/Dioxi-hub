@@ -1,0 +1,88 @@
+-- DIOXI PET FINDER - versión cliente para Delta
+-- Crea una GUI que lista "servidores" con brainrots de alto valor
+
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local LocalPlayer = Players.LocalPlayer
+
+-- GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DIOXI_PET_FINDER"
+screenGui.Parent = game.CoreGui
+screenGui.ResetOnSpawn = false
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 350, 0, 420)
+mainFrame.Position = UDim2.new(0, 20, 0, 80)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundTransparency = 1
+title.Text = "DIOXI PET FINDER"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Parent = mainFrame
+
+local refreshButton = Instance.new("TextButton")
+refreshButton.Size = UDim2.new(0, 100, 0, 30)
+refreshButton.Position = UDim2.new(1, -110, 0, 5)
+refreshButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+refreshButton.TextColor3 = Color3.new(1, 1, 1)
+refreshButton.Font = Enum.Font.Gotham
+refreshButton.TextSize = 16
+refreshButton.Text = "Actualizar"
+refreshButton.Parent = mainFrame
+
+local listFrame = Instance.new("ScrollingFrame")
+listFrame.Size = UDim2.new(1, -10, 1, -50)
+listFrame.Position = UDim2.new(0, 5, 0, 45)
+listFrame.BackgroundTransparency = 1
+listFrame.ScrollBarThickness = 6
+listFrame.Parent = mainFrame
+
+local layout = Instance.new("UIListLayout")
+layout.Parent = listFrame
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Padding = UDim.new(0, 6)
+
+-- Servidores de ejemplo (puedes cambiarlos)
+local servidores = {
+    {nombre = "BrainLord99", valor = 15000, jobId = "abc123"},
+    {nombre = "ZombifiedPro", valor = 13200, jobId = "def456"},
+    {nombre = "SkullMaster", valor = 11800, jobId = "ghi789"},
+    {nombre = "ToxicBrain", valor = 9400, jobId = "xyz987"},
+}
+
+-- Crear un botón por servidor
+local function makeServerButton(data)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -10, 0, 40)
+    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 16
+    btn.Text = string.format("%s — %s coins", data.nombre, data.valor)
+    btn.Parent = listFrame
+
+    btn.MouseButton1Click:Connect(function()
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, data.jobId, LocalPlayer)
+    end)
+end
+
+local function refreshList()
+    for _, child in pairs(listFrame:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    for _, data in ipairs(servidores) do
+        makeServerButton(data)
+    end
+end
+
+refreshButton.MouseButton1Click:Connect(refreshList)
+
+refreshList()
