@@ -1,0 +1,78 @@
+-- Dioxi_ClientFinder.lua
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local rf = ReplicatedStorage:WaitForChild("Dioxi_GetServerList")
+
+-- UI simple
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "DioxiPetFinder"
+
+local main = Instance.new("Frame", screenGui)
+main.Size = UDim2.new(0,360,0,420)
+main.Position = UDim2.new(0,20,0,80)
+main.BackgroundColor3 = Color3.fromRGB(18,18,18)
+main.Active = true
+main.Draggable = true
+
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1,0,0,38)
+title.BackgroundTransparency = 1
+title.Text = "DIOXI PET FINDER"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextColor3 = Color3.new(1,1,1)
+
+local list = Instance.new("ScrollingFrame", main)
+list.Size = UDim2.new(1,-12,1,-48)
+list.Position = UDim2.new(0,6,0,42)
+list.CanvasSize = UDim2.new(0,0,0,0)
+list.ScrollBarThickness = 8
+
+local layout = Instance.new("UIListLayout", list)
+layout.Padding = UDim.new(0,6)
+
+local function makeEntry(entry)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,-10,0,44)
+    btn.Text = ("%s  —  %s coins  —  %d players"):format(entry.topPlayer, tostring(entry.topValue), entry.playersCount)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 16
+    btn.Parent = list
+    btn.MouseButton1Click:Connect(function()
+        -- confirmación mínima
+        local ok = true
+        if not ok then return end
+        -- teleport usando jobId del servidor
+        local success, err = pcall(function()
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, entry.jobId, player)
+        end)
+        if not success then
+            warn("Teleport falló", err)
+        end
+    end)
+end
+
+-- refrescar lista desde server
+local function refresh()
+    for _,c in pairs(list:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+    local ok, data = pcall(function() return rf:InvokeServer() end)
+    if not ok or type(data) ~= "table" then
+        warn("No se pudo obtener lista")
+        return
+    end
+    for i,entry in ipairs(data) do
+        makeEntry(entry)
+    end
+    list.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 12)
+end
+
+refresh()
+-- refrescar con botón rápido
+local refreshBtn = Instance.new("TextButton", main)
+refreshBtn.Size = UDim2.new(0,120,0,30)
+refreshBtn.Position = UDim2.new(1,-130,0,6)
+refreshBtn.Text = "Actualizar"
+refreshBtn.MouseButton1Click:Connect(refresh)
