@@ -1,0 +1,113 @@
+-- Dioxi_ServerReporter.lua
+local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local REPORT_STORE = DataStoreService:GetDataStore("DioxiServerReports_v1")
+local LIST_KEY = "Dioxi_GlobalServerList" -- almacena JSON con entries
+local UPDATE_INTERVAL = 60 -- segundos entre reportes
+
+-- RemoteFunction para que clientes pidan la lista
+local rf = ReplicatedStorage:FindFirstChild("Dioxi_GetServerList")
+if not rf then
+    rf = Instance.new("RemoteFunction")
+    rf.Name = "Dioxi_GetServerList"
+    rf.Parent = ReplicatedStorage
+end
+
+-- función auxiliar que obtiene el "valor" del brainrot de un jugador
+local function getBrainrotValue(player)
+    -- busca en leaderstats o en un IntValue llamado BrainrotValue
+    local ls = player:FindFirstChild("leaderstats")
+    if ls then
+        local v = ls:FindFirstChild("BrainrotValue") or ls:FindFirstChild("BrainRotValue") or ls:FindFirstChild("BrainRot")
+        if v and (v:IsA("IntValue") or v:IsA("NumberValue")) then
+            return tonumber(v.Value) or 0
+        end
+    end
+    local direct = player:FindFirstChild("BrainrotValue") or player:FindFirstChild("BrainRotValue")
+    if direct and (direct:IsA("IntValue") or direct:IsA("NumberValue")) then
+        return tonumber(direct.Value) or 0
+    end
+    -- si tu juego guarda la info en otro lugar, añade comprobaciones aquí
+    return 0
+end
+
+-- construir entry del server
+local function buildReport()
+    local bestName, bestValue = nil, 0
+    for _, p in pairs(Players:GetPlayers()) do
+        local val = getBrainrotValue(p)
+        if val > bestValue then
+            bestValue = val
+            bestName = p.Name
+        end
+    end
+    if not bestName then return nil end
+    local data = {
+        placeId = game.PlaceId,
+        jobId = tostring(game.JobId), -- identificador del server
+        topPlayer = bestName,
+        topValue = bestValue,
+        playersCount = #Players:GetPlayers(),
+        timestamp = os.time()
+    }
+    return data
+end
+
+-- actualizar lista global en DataStore (guardamos hasta N entradas, ordenadas por topValue)
+local function updateGlobalList(entry)
+    if not entry then return end
+    local ok, raw = pcall(function() return REPORT_STORE:GetAsync(LIST_KEY) end)
+    local list = {}
+    if ok and raw then
+        local success, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
+        if success and type(decoded) == "table" then list = decoded end
+    end
+    -- reemplaza entry si ya existe jobId, sino añade
+    local replaced = false
+    for i,v in ipairs(list) do
+        if v.jobId == entry.jobId then
+            list[i] = entry
+            replaced = true
+            break
+        end
+    end
+    if not replaced then table.insert(list, entry) end
+    -- ordenar por topValue descendente y limitar a 50 entradas
+    table.sort(list, function(a,b) return (a.topValue or 0) > (b.topValue or 0) end)
+    while #list > 50 do table.remove(list) end
+    local encoded = HttpService:JSONEncode(list)
+    pcall(function() REPORT_STORE:SetAsync(LIST_KEY, encoded) end)
+end
+
+-- background reporter
+spawn(function()
+    while true do
+        local entry = buildReport()
+        if entry then updateGlobalList(entry) end
+        wait(UPDATE_INTERVAL)
+    end
+end)
+
+-- RemoteFunction OnServerInvoke para devolver lista al cliente (filtrada y segura)
+rf.OnServerInvoke = function(playerRequester)
+    local ok, raw = pcall(function() return REPORT_STORE:GetAsync(LIST_KEY) end)
+    if not ok or not raw then return {} end
+    local success, decoded = pcall(function() return HttpService:JSONDecode(raw) end)
+    if not success or type(decoded) ~= "table" then return {} end
+    -- devolver hasta 20 entradas, puedes filtrar por playersCount>0
+    local out = {}
+    for i=1, math.min(20, #decoded) do
+        local e = decoded[i]
+        table.insert(out, {
+            jobId = e.jobId,
+            topPlayer = e.topPlayer,
+            topValue = e.topValue,
+            playersCount = e.playersCount,
+            timestamp = e.timestamp
+        })
+    end
+    return out
+end
